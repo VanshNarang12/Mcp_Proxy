@@ -1,0 +1,8 @@
+target:
+  command: /Users/shipsy/Documents/Projects/add_number_mcp/.venv/bin/python
+  args:
+    - /Users/shipsy/Documents/Projects/add_number_mcp/server.py
+
+block:
+  tools:
+    - vgbhjn
