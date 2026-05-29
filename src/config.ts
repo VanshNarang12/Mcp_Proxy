@@ -64,11 +64,25 @@ const InstructionsSchema = z
   })
   .strict();
 
+const SqlGuardSchema = z
+  .object({
+    tools: z.array(z.string()).default([]),
+    sqlArg: z.string().min(1).default("sql"),
+    readOnly: z.boolean().default(true),
+    mode: z.enum(["allowlist", "denylist"]).default("allowlist"),
+    extraWriteKeywords: z.array(z.string()).default([]),
+    extraReadVerbs: z.array(z.string()).default([]),
+  })
+  .strict();
+
 export const OverlayConfigSchema = z
   .object({
     target: TargetSchema,
     block: BlockSchema.optional(),
     audit: AuditSchema.optional(),
+    // FR-PIPE-016 order: audit, then gates (block, sqlGuard), then observers
+    // (instructions), then redact last.
+    sqlGuard: SqlGuardSchema.optional(),
     instructions: InstructionsSchema.optional(),
     redact: RedactSchema.optional(),
   })

@@ -9,6 +9,10 @@ import {
   createInstructionsOverlay,
   type InstructionsConfig,
 } from "./overlays/instructions.js";
+import {
+  createSqlGuardOverlay,
+  type SqlGuardConfig,
+} from "./overlays/sqlGuard.js";
 import { loadConfig, type OverlayConfig } from "./config.js";
 
 const USAGE = `Usage:
@@ -35,6 +39,7 @@ interface Resolved {
   cwd?: string;
   blockTools: string[];
   audit?: AuditConfig;
+  sqlGuard?: SqlGuardConfig;
   instructions?: InstructionsConfig;
   redact?: RedactConfig;
 }
@@ -56,6 +61,7 @@ function fromConfigFile(path: string): Resolved {
     cwd: cfg.target.cwd,
     blockTools: cfg.block?.tools ?? [],
     audit: cfg.audit,
+    sqlGuard: cfg.sqlGuard,
     instructions: cfg.instructions,
     redact: cfg.redact,
   };
@@ -122,6 +128,14 @@ async function main(): Promise<void> {
     overlays.push(createBlockOverlay({ tools: resolved.blockTools }));
     process.stderr.write(
       `[mcp-middleware] block overlay active: ${resolved.blockTools.join(", ")}\n`,
+    );
+  }
+  // sqlGuard is a gate; it runs after block but before the observers so a
+  // rejected write never reaches the target.
+  if (resolved.sqlGuard && resolved.sqlGuard.tools.length > 0) {
+    overlays.push(createSqlGuardOverlay(resolved.sqlGuard));
+    process.stderr.write(
+      `[mcp-middleware] sqlGuard overlay active: ${resolved.sqlGuard.mode ?? "allowlist"} on ${resolved.sqlGuard.tools.join(", ")}\n`,
     );
   }
   // instructions runs after block so it only rewrites descriptions of tools
