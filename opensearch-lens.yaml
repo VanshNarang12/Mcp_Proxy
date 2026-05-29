@@ -1,0 +1,44 @@
+# Lens for the OpenSearch MCP server, run through the proxy.
+#
+# Before launching Cursor with this config, export these in your shell:
+#   export OPENSEARCH_URL='https://...'
+#   export OPENSEARCH_USERNAME='shipsy_common'
+#   export OPENSEARCH_PASSWORD='your-password'
+# (Put them in ~/.zshrc or ~/.zprofile so they persist.)
+
+target:
+  command: uvx
+  args:
+    - opensearch-mcp-server-py
+  env:
+    OPENSEARCH_URL: ${OPENSEARCH_URL}
+    OPENSEARCH_USERNAME: ${OPENSEARCH_USERNAME}
+    OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD}
+
+# Tools you don't want the AI to call.
+# Common destructive ones for OpenSearch:
+#   - delete_index
+#   - cluster_reroute
+#   - cluster_settings_update
+block:
+  tools: []
+
+audit:
+  sink: ./opensearch-audit.log
+  # Search queries often contain PII or sensitive predicates — keep them hashed.
+  logRawArgs: false
+  identity:
+    user: shipsy
+    machine: vansh-macbook-air
+
+redact:
+    defaultReplacement: '[REDACTED]'
+    rules:
+      - name: email
+        pattern: '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+      - name: aws-access-key
+        pattern: '\bAKIA[0-9A-Z]{16}\b'
+      - name: github-pat
+        pattern: '\bghp_[A-Za-z0-9]{36}\b'
+      - name: phone-us
+        pattern: '\b\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'

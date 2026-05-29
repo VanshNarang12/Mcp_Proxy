@@ -19,10 +19,58 @@ const BlockSchema = z
   })
   .strict();
 
+const AuditSchema = z
+  .object({
+    sink: z.string().min(1, "must be a non-empty path"),
+    identity: z.record(z.string()).optional(),
+    logRawArgs: z.boolean().default(false),
+  })
+  .strict();
+
+const RedactRuleSchema = z
+  .object({
+    name: z.string().min(1),
+    pattern: z.string().min(1),
+    replacement: z.string().optional(),
+  })
+  .strict();
+
+const RedactSchema = z
+  .object({
+    rules: z.array(RedactRuleSchema).default([]),
+    defaultReplacement: z.string().optional(),
+  })
+  .strict();
+
+const InstructionRuleSchema = z
+  .object({
+    tool: z.string().min(1),
+    prepend: z.string().optional(),
+    append: z.string().optional(),
+    replace: z.string().optional(),
+  })
+  .strict()
+  .refine(
+    (r) =>
+      r.prepend !== undefined ||
+      r.append !== undefined ||
+      r.replace !== undefined,
+    { message: "must set at least one of prepend, append, or replace" },
+  );
+
+const InstructionsSchema = z
+  .object({
+    rules: z.array(InstructionRuleSchema).default([]),
+  })
+  .strict();
+
 export const OverlayConfigSchema = z
   .object({
     target: TargetSchema,
     block: BlockSchema.optional(),
+    audit: AuditSchema.optional(),
+    instructions: InstructionsSchema.optional(),
+    redact: RedactSchema.optional(),
   })
   .strict();
 
@@ -128,6 +176,9 @@ export function loadConfig(
 
   if (validated.target.cwd) {
     validated.target.cwd = normalizePath(validated.target.cwd, configDir);
+  }
+  if (validated.audit) {
+    validated.audit.sink = normalizePath(validated.audit.sink, configDir);
   }
 
   return validated;

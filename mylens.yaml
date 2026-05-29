@@ -6,3 +6,21 @@ target:
 block:
   tools:
     - vgbhjn
+
+audit:
+  sink: ./audit.log
+  logRawArgs: true
+  identity:
+    user: shipsy
+    machine: vansh-macbook-air
+
+instructions:
+  rules:
+    - tool: add
+      append: ' (use only for trusted numeric input)'
+
+redact:
+  rules:
+    - name: digits
+      pattern: '\d+'
+      replacement: '[N]'

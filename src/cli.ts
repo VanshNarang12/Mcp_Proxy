@@ -3,6 +3,12 @@ import { parseArgs } from "node:util";
 import { Pipeline, type Overlay } from "./pipeline.js";
 import { runStdioTransport } from "./transport/stdio.js";
 import { createBlockOverlay } from "./overlays/block.js";
+import { createAuditOverlay, type AuditConfig } from "./overlays/audit.js";
+import { createRedactOverlay, type RedactConfig } from "./overlays/redact.js";
+import {
+  createInstructionsOverlay,
+  type InstructionsConfig,
+} from "./overlays/instructions.js";
 import { loadConfig, type OverlayConfig } from "./config.js";
 
 const USAGE = `Usage:
@@ -28,6 +34,9 @@ interface Resolved {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
   blockTools: string[];
+  audit?: AuditConfig;
+  instructions?: InstructionsConfig;
+  redact?: RedactConfig;
 }
 
 function fromConfigFile(path: string): Resolved {
@@ -46,6 +55,9 @@ function fromConfigFile(path: string): Resolved {
     env: cfg.target.env,
     cwd: cfg.target.cwd,
     blockTools: cfg.block?.tools ?? [],
+    audit: cfg.audit,
+    instructions: cfg.instructions,
+    redact: cfg.redact,
   };
 }
 
@@ -99,10 +111,32 @@ async function main(): Promise<void> {
     : fromCliFlags(target, block);
 
   const overlays: Overlay[] = [];
+  // audit goes first so it sees the rawest message before any gate modifies it.
+  if (resolved.audit) {
+    overlays.push(createAuditOverlay(resolved.audit));
+    process.stderr.write(
+      `[mcp-middleware] audit overlay active: ${resolved.audit.sink}\n`,
+    );
+  }
   if (resolved.blockTools.length > 0) {
     overlays.push(createBlockOverlay({ tools: resolved.blockTools }));
     process.stderr.write(
       `[mcp-middleware] block overlay active: ${resolved.blockTools.join(", ")}\n`,
+    );
+  }
+  // instructions runs after block so it only rewrites descriptions of tools
+  // that survived the gate, but before redact (which only touches tools/call).
+  if (resolved.instructions && resolved.instructions.rules.length > 0) {
+    overlays.push(createInstructionsOverlay(resolved.instructions));
+    process.stderr.write(
+      `[mcp-middleware] instructions overlay active: ${resolved.instructions.rules.length} rule(s)\n`,
+    );
+  }
+  // redact goes last so it acts on the response after audit has seen it raw.
+  if (resolved.redact && resolved.redact.rules.length > 0) {
+    overlays.push(createRedactOverlay(resolved.redact));
+    process.stderr.write(
+      `[mcp-middleware] redact overlay active: ${resolved.redact.rules.length} rule(s)\n`,
     );
   }
 
