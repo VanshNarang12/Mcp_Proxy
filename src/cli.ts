@@ -13,6 +13,10 @@ import {
   createSqlGuardOverlay,
   type SqlGuardConfig,
 } from "./overlays/sqlGuard.js";
+import {
+  createRateLimitOverlay,
+  type RateLimitConfig,
+} from "./overlays/rateLimit.js";
 import { loadConfig, type OverlayConfig } from "./config.js";
 
 const USAGE = `Usage:
@@ -40,6 +44,7 @@ interface Resolved {
   blockTools: string[];
   audit?: AuditConfig;
   sqlGuard?: SqlGuardConfig;
+  rateLimit?: RateLimitConfig;
   instructions?: InstructionsConfig;
   redact?: RedactConfig;
 }
@@ -62,6 +67,7 @@ function fromConfigFile(path: string): Resolved {
     blockTools: cfg.block?.tools ?? [],
     audit: cfg.audit,
     sqlGuard: cfg.sqlGuard,
+    rateLimit: cfg.rateLimit,
     instructions: cfg.instructions,
     redact: cfg.redact,
   };
@@ -136,6 +142,14 @@ async function main(): Promise<void> {
     overlays.push(createSqlGuardOverlay(resolved.sqlGuard));
     process.stderr.write(
       `[mcp-middleware] sqlGuard overlay active: ${resolved.sqlGuard.mode ?? "allowlist"} on ${resolved.sqlGuard.tools.join(", ")}\n`,
+    );
+  }
+  // rateLimit is a gate; it runs after sqlGuard (FR-PIPE-016) so a throttled
+  // call is rejected before reaching the target.
+  if (resolved.rateLimit && resolved.rateLimit.length > 0) {
+    overlays.push(createRateLimitOverlay(resolved.rateLimit));
+    process.stderr.write(
+      `[mcp-middleware] rateLimit overlay active: ${resolved.rateLimit.length} rule(s)\n`,
     );
   }
   // instructions runs after block so it only rewrites descriptions of tools

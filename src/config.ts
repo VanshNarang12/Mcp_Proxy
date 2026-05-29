@@ -75,14 +75,24 @@ const SqlGuardSchema = z
   })
   .strict();
 
+const RateLimitRuleSchema = z
+  .object({
+    tool: z.string().min(1),
+    perMinute: z.number().positive(),
+  })
+  .strict();
+
+const RateLimitSchema = z.array(RateLimitRuleSchema);
+
 export const OverlayConfigSchema = z
   .object({
     target: TargetSchema,
     block: BlockSchema.optional(),
     audit: AuditSchema.optional(),
-    // FR-PIPE-016 order: audit, then gates (block, sqlGuard), then observers
-    // (instructions), then redact last.
+    // FR-PIPE-016 order: audit, then gates (block, sqlGuard, rateLimit), then
+    // observers (instructions), then redact last.
     sqlGuard: SqlGuardSchema.optional(),
+    rateLimit: RateLimitSchema.optional(),
     instructions: InstructionsSchema.optional(),
     redact: RedactSchema.optional(),
   })
