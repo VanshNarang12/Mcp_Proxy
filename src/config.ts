@@ -87,6 +87,11 @@ const RateLimitSchema = z.array(RateLimitRuleSchema);
 export const OverlayConfigSchema = z
   .object({
     target: TargetSchema,
+    // Quarantine activation + data classification (FR-QUAR-001, FR-QUAR-002).
+    firstRun: z.literal("approve").optional(),
+    classification: z
+      .enum(["public", "internal", "sensitive"])
+      .optional(),
     block: BlockSchema.optional(),
     audit: AuditSchema.optional(),
     // FR-PIPE-016 order: audit, then gates (block, sqlGuard, rateLimit), then
